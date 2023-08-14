@@ -1,0 +1,251 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BrickBreakerGame extends JPanel implements ActionListener, KeyListener {
+
+    private static final int WIDTH = 800;
+    private static final int HEIGHT = 600;
+    private static final int PADDLE_WIDTH = 100;
+    private static final int PADDLE_HEIGHT = 10;
+    private static final int BALL_SIZE = 20;
+    private static final int BRICK_WIDTH = 70;
+    private static final int BRICK_HEIGHT = 20;
+    private static final int BRICK_ROWS = 5;
+    private static final int BRICK_COLS = 10;
+
+    private Timer timer;
+    private List<Brick> bricks;
+    private Paddle paddle;
+    private Ball ball;
+    private int level = 1;
+
+    public BrickBreakerGame() {
+        setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        setBackground(Color.black);
+        addKeyListener(this);
+        setFocusable(true);
+
+        initializeGame();
+
+        timer = new Timer(5, this);
+        timer.start();
+    }
+
+    private void initializeGame() {
+        bricks = new ArrayList<>();
+        for (int row = 0; row < BRICK_ROWS; row++) {
+            for (int col = 0; col < BRICK_COLS; col++) {
+                bricks.add(new Brick(col * (BRICK_WIDTH + 2) + 30, row * (BRICK_HEIGHT + 2) + 50));
+            }
+        }
+
+        paddle = new Paddle();
+        ball = new Ball();
+    }
+
+    private void update() {
+        paddle.move();
+        ball.move();
+        checkCollisions();
+    }
+
+    private void checkCollisions() {
+        // Ball and Paddle collision
+        if (ball.getBounds().intersects(paddle.getBounds())) {
+            ball.reverseYDirection();
+        }
+
+        // Ball and Brick collision
+        for (Brick brick : bricks) {
+            if (ball.getBounds().intersects(brick.getBounds())) {
+                ball.reverseYDirection();
+                brick.setDestroyed(true);
+            }
+        }
+
+        bricks.removeIf(Brick::isDestroyed);
+
+        // Ball and screen boundary collision
+        if (ball.getX() <= 0 || ball.getX() >= WIDTH - BALL_SIZE) {
+            ball.reverseXDirection();
+        }
+        if (ball.getY() <= 0) {
+            ball.reverseYDirection();
+        }
+
+        // Ball falls off the bottom
+        if (ball.getY() >= HEIGHT - BALL_SIZE) {
+            if (level < 3) {
+                level++;
+                initializeGame();
+            } else {
+                timer.stop();
+            }
+        }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        update();
+        repaint();
+    }
+
+    @Override
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        for (Brick brick : bricks) {
+            brick.draw(g);
+        }
+
+        paddle.draw(g);
+        ball.draw(g);
+
+        if (level == 3) {
+            g.setColor(Color.white);
+            g.setFont(new Font("Arial", Font.BOLD, 36));
+            g.drawString("You Win!", WIDTH / 2 - 80, HEIGHT / 2);
+        }
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+            paddle.moveLeft();
+        }
+        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            paddle.moveRight();
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_LEFT || e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            paddle.stop();
+        }
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {}
+
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Brick Breaker");
+        BrickBreakerGame game = new BrickBreakerGame();
+        frame.add(game);
+        frame.pack();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+    }
+
+    private class Brick {
+        private int x, y;
+        private boolean destroyed;
+
+        public Brick(int x, int y) {
+            this.x = x;
+            this.y = y;
+            this.destroyed = false;
+        }
+
+        public boolean isDestroyed() {
+            return destroyed;
+        }
+
+        public void setDestroyed(boolean destroyed) {
+            this.destroyed = destroyed;
+        }
+
+        public void draw(Graphics g) {
+            if (!destroyed) {
+                g.setColor(Color.white);
+                g.fillRect(x, y, BRICK_WIDTH, BRICK_HEIGHT);
+            }
+        }
+
+        public Rectangle getBounds() {
+            return new Rectangle(x, y, BRICK_WIDTH, BRICK_HEIGHT);
+        }
+    }
+
+    private class Paddle {
+        private int x, y;
+        private int xVelocity;
+
+        public Paddle() {
+            x = WIDTH / 2 - PADDLE_WIDTH / 2;
+            y = HEIGHT - PADDLE_HEIGHT - 10;
+            xVelocity = 0;
+        }
+
+        public void draw(Graphics g) {
+            g.setColor(Color.white);
+            g.fillRect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT);
+        }
+
+        public void moveLeft() {
+            xVelocity = -3;
+        }
+
+        public void moveRight() {
+            xVelocity = 3;
+        }
+
+        public void stop() {
+            xVelocity = 0;
+        }
+
+        public void move() {
+            if (x + xVelocity >= 0 && x + xVelocity <= WIDTH - PADDLE_WIDTH) {
+                x += xVelocity;
+            }
+        }
+
+        public Rectangle getBounds() {
+            return new Rectangle(x, y, PADDLE_WIDTH, PADDLE_HEIGHT);
+        }
+    }
+
+    private class Ball {
+        private int x, y;
+        private int xVelocity = 1;
+        private int yVelocity = -1;
+
+        public Ball() {
+            x = WIDTH / 2 - BALL_SIZE / 2;
+            y = HEIGHT / 2 - BALL_SIZE / 2;
+        }
+
+        public void draw(Graphics g) {
+            g.setColor(Color.white);
+            g.fillOval(x, y, BALL_SIZE, BALL_SIZE);
+        }
+
+        public void move() {
+            x += xVelocity;
+            y += yVelocity;
+        }
+
+        public void reverseXDirection() {
+            xVelocity = -xVelocity;
+        }
+
+        public void reverseYDirection() {
+            yVelocity = -yVelocity;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public Rectangle getBounds() {
+            return new Rectangle(x, y, BALL_SIZE, BALL_SIZE);
+        }
+    }
+}
